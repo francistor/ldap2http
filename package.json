@@ -1,0 +1,19 @@
+{
+  "name": "ldap2http",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "",
+  "main": "ldap2http.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node ldap2http.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "commander": "^10.0.0",
+    "got": "^12.6.0",
+    "ldapjs": "^3.0.1"
+  }
+}
