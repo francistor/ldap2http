@@ -22,14 +22,14 @@ const commander = new Command();
 
 // Process command line
 commander
-  .version('0.0.1', '-v, --version')
-  .usage('[OPTIONS]...')
-  .option('-u, --url <url>', 'url for the http backend. May also use LDAP2HTTP_BACKEND_URL environment variable')
-  .option('-p, --port <port>', 'LDAP listening port. May also use LDAP2HTTP_PORT environment variable')
-  .option('-b, --bind <bind dn>', 'bind dn. May also use LDAP2HTTP_BIND_DN environment variable')
-  .option('-w, --password <bind password>', 'bind password. May also use LDAP2HTTP_BIND_PASSWORD environment variable')
-  .option('-d, --debug', 'debug mode')
-  .parse(process.argv);
+    .version('0.0.1', '-v, --version')
+    .usage('[OPTIONS]...')
+    .option('-u, --url <url>', 'url for the http backend. May also use LDAP2HTTP_BACKEND_URL environment variable')
+    .option('-p, --port <port>', 'LDAP listening port. May also use LDAP2HTTP_PORT environment variable')
+    .option('-b, --bind <bind dn>', 'bind dn. May also use LDAP2HTTP_BIND_DN environment variable')
+    .option('-w, --password <bind password>', 'bind password. May also use LDAP2HTTP_BIND_PASSWORD environment variable')
+    .option('-d, --debug', 'debug mode')
+    .parse(process.argv);
 
 const options = commander.opts();
 
@@ -47,12 +47,12 @@ if (!bindPassword) throw Error("pind password not specified");
 // Start LDAP server
 const server = ldap.createServer();
 server.listen(port, () => {
-    console.log(`LDAP server listening in port ${port}`);
+    console.log(`[INFO] [${new Date().toISOString()}] LDAP server listening in port ${port}`);
 });
 
 server.bind(options.bind, (req, res, next) => {
-    if (req.dn.toString() != bindDN || req.credentials != bindPassword){
-        if(debug) console.log(`bad bind with ${req.dn.toString()}`);
+    if (req.dn.toString() != bindDN || req.credentials != bindPassword) {
+        if (debug) console.error(`[ERROR] [${new Date().toISOString()}] bad bind with ${req.dn.toString()}`);
         return next(new ldap.InvalidCredentialsError());
     }
     res.end();
@@ -69,35 +69,40 @@ server.on('error', (e) => {
 server.search('', async (req, res, next) => {
 
     // Compose url
-    let url = baseUrl +"/" + req.dn.toString().split(",").reverse().join("/") + "?";
-    if(req.filter) url += "filter=" + encodeURIComponent(req.filter.toString()) + "&"
-    if(req.scope) url += "scope=" + req.scope.toString();
-    if(debug) console.log("invoking backend with", url);
+    let url = baseUrl + "/" + req.dn.toString().split(",").reverse().join("/") + "?";
+    if (req.filter) url += "filter=" + encodeURIComponent(req.filter.toString()) + "&"
+    if (req.scope) url += "scope=" + req.scope.toString();
+    if (debug) console.log(`[DEBUG] [${new Date().toISOString()}] invoking backend with `, url);
 
 
-    // By default does 2 retries
-    got(url, {retry: {limit: 0}}).json().then(
+    // By default does 2 retries. We only one to do one try
+    got(url, { retry: { limit: 0 } }).json().then(
         (json) => {
             // Not taking filter into account. The backend must do it
             // All attributes are returned
 
             // Send the entries one by one
             json.forEach((entry) => {
-                if(debug) console.log("entry:", JSON.stringify(entry));
+                if (debug) console.log(`[DEBUG] [${new Date().toISOString()}]entry: `, JSON.stringify(entry));
                 res.send(entry);
             });
 
-            if(debug) console.log("response sent");
+            if (debug) console.log(`[DEBUG] [${new Date().toISOString()}] response sent`);
             res.end();
         },
         (error) => {
-            if (error.response.statusCode < 500){
-                console.error("not found");
-                return next(new ldap.NoSuchObjectError());
+            if (error.response) {
+                if (error.response.statusCode < 500) {
+                    console.error(`[ERROR] [${new Date().toISOString()}] object not found`);
+                    return next(new ldap.NoSuchObjectError());
+                } else {
+                    console.error(`[ERROR] [${new Date().toISOString()}]backed server error`);
+                    return next(new ldap.UnavailableError());
+                }
             } else {
-                console.error("bad error");
-                return next(new ldap.UnavailableError());
-            }            
+                console.error(`[ERROR] [${new Date().toISOString()}] could not contact backend`)
+                return next(new ldap.UnavailableError("could not connect to backend"));
+            }
         }
     );
 });
